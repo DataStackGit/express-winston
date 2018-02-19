@@ -268,13 +268,16 @@ exports.logger = function logger(options) {
                 if (chunks.length || chunk) { 
                   if (chunk) chunks.push(new Buffer(chunk));
                   if (options.responseBodyFolder) {
-                    var reqId= uuid();
-                    var isJson = (res._headers && res._headers['content-type'] && res._headers['content-type'].indexOf('json') >= 0);
-                    var isHtml = !isJson && (res._headers && res._headers['content-type'] && res._headers['content-type'].indexOf('htm') >= 0);
-                    var fn=reqId+(isJson?".json":isHtml?".html":".txt");
-                    logData.res.body=fn;
-                    fn=path.join(options.responseBodyFolder, fn);
-                    fs.writeFile(fn, Buffer.concat(chunks).toString('utf8'));
+                    var folder=(typeof options.responseBodyFolder == "function")?options.responseBodyFolder(req, res):options.responseBodyFolder;
+                    if (folder) {                    
+                      var reqId= uuid();
+                      var isJson = (res._headers && res._headers['content-type'] && res._headers['content-type'].indexOf('json') >= 0);
+                      var isHtml = !isJson && (res._headers && res._headers['content-type'] && res._headers['content-type'].indexOf('htm') >= 0);
+                      var fn=reqId+(isJson?".json":isHtml?".html":".txt");
+                      logData.res.body=fn;
+                      fn=path.join(folder, fn);
+                      fs.writeFile(fn, Buffer.concat(chunks).toString('utf8'));
+                    }
                   } else 
                     logData.res.body = Buffer.concat(chunks).toString('utf8');
                   /*
@@ -356,8 +359,8 @@ exports.logger = function logger(options) {
                 }
                 else cat=options.category;
 
-                if (cat && options.winstonInstance.loggers.has(cat) ) {
-                  logger = options.winstonInstance.loggers.get(cat);
+                if (cat && options.winstonInstance.loggers?options.winstonInstance.loggers.has(cat):options.winstonInstance.has(cat) ) {
+                  logger = options.winstonInstance.loggers?options.winstonInstance.loggers.get(cat):options.winstonInstance.get(cat);
                  
                 } else {
                   console.warn("Use default loger category", cat, options.winstonInstance.loggers.loggers);
