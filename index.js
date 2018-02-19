@@ -120,7 +120,9 @@ exports.errorLogger = function errorLogger(options) {
 
     options.requestWhitelist = options.requestWhitelist || exports.requestWhitelist;
     options.requestFilter = options.requestFilter || exports.defaultRequestFilter;
-    options.winstonInstance = options.winstonInstance || (new winston.Logger ({ transports: options.transports }));
+    if (!options.winstonInstance ) {
+      options.winstonInstance =  (new winston.Logger ({ transports: options.transports }));
+    }
     options.msg = options.msg || 'middlewareError';
     options.baseMeta = options.baseMeta || {};
     options.metaField = options.metaField || null;
@@ -186,7 +188,9 @@ exports.logger = function logger(options) {
     options.requestFilter = options.requestFilter || exports.defaultRequestFilter;
     options.responseFilter = options.responseFilter || exports.defaultResponseFilter;
     options.ignoredRoutes = options.ignoredRoutes || exports.ignoredRoutes;
-    options.winstonInstance = options.winstonInstance || (new winston.Logger ({ transports: options.transports }));
+    if (!options.winstonInstance ) {
+      options.winstonInstance =  (new winston.Logger ({ transports: options.transports }));
+    }
     options.statusLevels = options.statusLevels || false;
     options.level = options.statusLevels ? levelFromStatus(options) : (options.level || "info");
     options.msg = options.msg || "HTTP {{req.method}} {{req.url}}";
@@ -343,7 +347,23 @@ exports.logger = function logger(options) {
             // This is fire and forget, we don't want logging to hold up the request so don't wait for the callback
             if (!options.skip(req, res)) {
               var level = _.isFunction(options.level) ? options.level(req, res) : options.level;
-              options.winstonInstance.log(level, msg, meta);
+              var logger=options.winstonInstance;
+              if (options.category) {
+                var cat;
+                if ( typeof options.category == "function" ) {
+                  cat=options.category(req, res);
+
+                }
+                else cat=options.category;
+
+                if (cat && options.winstonInstance.loggers.has(cat) ) {
+                  logger = options.winstonInstance.loggers.get(cat);
+                 
+                } else {
+                  console.warn("Use default loger category", cat, options.winstonInstance.loggers.loggers);
+                }
+              }
+              logger.log(level, msg, meta);
             }
         };
 
