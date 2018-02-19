@@ -21,6 +21,9 @@
 var winston = require('winston');
 var util = require('util');
 var chalk = require('chalk');
+var uuid = require("uuid/v4");
+var fs  =require("fs");
+var path = require('path');
 
 var _ = require('lodash');
 
@@ -230,6 +233,15 @@ exports.logger = function logger(options) {
 
         // Manage to get information from the response too, just like Connect.logger does:
         var end = res.end;
+        var chunks=[];
+
+        if (_.includes(options.responseWhitelist, 'body')) {
+          var oldWrite = res.write;
+          res.write = function (chunk) {
+            chunks.push(new Buffer(chunk));
+            oldWrite.apply(res, arguments);
+          };
+        }
         res.end = function(chunk, encoding) {
             res.responseTime = (new Date) - req._startTime;
 
@@ -249,11 +261,22 @@ exports.logger = function logger(options) {
               logData.res = res;
 
               if (_.includes(responseWhitelist, 'body')) {
-                if (chunk) {
-                  var isJson = (res._headers && res._headers['content-type']
-                    && res._headers['content-type'].indexOf('json') >= 0);
-
-                  logData.res.body = bodyToString(chunk, isJson);
+                if (chunks.length || chunk) { 
+                  if (chunk) chunks.push(new Buffer(chunk));
+                  if (options.responseBodyFolder) {
+                    var reqId= uuid();
+                    var isJson = (res._headers && res._headers['content-type'] && res._headers['content-type'].indexOf('json') >= 0);
+                    var isHtml = !isJson && (res._headers && res._headers['content-type'] && res._headers['content-type'].indexOf('htm') >= 0);
+                    var fn=reqId+(isJson?".json":isHtml?".html":".txt");
+                    logData.res.body=fn;
+                    fn=path.join(options.responseBodyFolder, fn);
+                    fs.writeFile(fn, Buffer.concat(chunks).toString('utf8'));
+                  } else 
+                    logData.res.body = Buffer.concat(chunks).toString('utf8');
+                  /*
+                  var isJson = (res._headers && res._headers['content-type'] && res._headers['content-type'].indexOf('json') >= 0);
+                  logData.res.body =  bodyToString(buffer+(chunk?chunk:""), isJson);
+                  */
                 }
               }
 
